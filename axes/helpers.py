@@ -148,6 +148,9 @@ def get_client_ip_address(request) -> str:
         proxy_trusted_ips=settings.AXES_PROXY_TRUSTED_IPS,
         request_header_order=settings.AXES_META_PRECEDENCE_ORDER,
     )
+    if settings.AXES_PROXY_COUNT and settings.AXES_REVERSE_PROXY_XFF_CLIENT_PORT:
+        # Fix for IIS adding client port number to 'HTTP_X_FORWARDED_FOR' header (removes port number).
+        client_ip_address = ''.join(client_ip_address.split(':')[:-1])
 
     return client_ip_address
 
