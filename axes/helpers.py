@@ -133,6 +133,22 @@ def get_client_username(request, credentials: dict = None) -> str:
     return request.POST.get(settings.AXES_USERNAME_FORM_FIELD, None)
 
 
+def get_iis_ip(request):
+    ip = request.META.get('REMOTE_ADDR', '')
+    ip = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',', 1)[0]
+    ip = ip.strip()
+    # Fix for IIS adding client port number to 'HTTP_X_FORWARDED_FOR' header (removes port number).
+    ip = ''.join(ip.split(':')[:-1])
+    if not ip:
+        raise Warning(
+            'Axes is configured for operation behind a reverse proxy '
+            'but could not find an HTTP header value. Check your proxy '
+            'server settings to make sure this header value is being '
+            'passed. Header value {0}'.format(REVERSE_PROXY_HEADER)
+        )
+    return ip
+
+
 def get_client_ip_address(request) -> str:
     """
     Get client IP address as configured by the user.
@@ -140,17 +156,16 @@ def get_client_ip_address(request) -> str:
     The django-ipware package is used for address resolution
     and parameters can be configured in the Axes package.
     """
-
-    client_ip_address, _ = ipware.ip2.get_client_ip(
-        request,
-        proxy_order=settings.AXES_PROXY_ORDER,
-        proxy_count=settings.AXES_PROXY_COUNT,
-        proxy_trusted_ips=settings.AXES_PROXY_TRUSTED_IPS,
-        request_header_order=settings.AXES_META_PRECEDENCE_ORDER,
-    )
     if settings.AXES_PROXY_COUNT and settings.AXES_REVERSE_PROXY_XFF_CLIENT_PORT:
-        # Fix for IIS adding client port number to 'HTTP_X_FORWARDED_FOR' header (removes port number).
-        client_ip_address = ''.join(client_ip_address.split(':')[:-1])
+        client_ip_address = get_iis_ip(request)
+    else:
+        client_ip_address, _ = ipware.ip2.get_client_ip(
+            request,
+            proxy_order=settings.AXES_PROXY_ORDER,
+            proxy_count=settings.AXES_PROXY_COUNT,
+            proxy_trusted_ips=settings.AXES_PROXY_TRUSTED_IPS,
+            request_header_order=settings.AXES_META_PRECEDENCE_ORDER,
+        )
 
     return client_ip_address
 
